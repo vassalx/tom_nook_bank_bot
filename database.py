@@ -33,6 +33,6 @@ def set_coins(user_id, amount):
     cursor.execute("UPDATE users SET coins = ? WHERE user_id = ?", (amount, user_id))
     conn.commit()
 
-def get_top_users():
-    cursor.execute("SELECT user_id, coins FROM users ORDER BY coins DESC")
+def get_top_users(limit=10):
+    cursor.execute("SELECT user_id, coins FROM users ORDER BY coins DESC LIMIT ?", (limit,))
     return cursor.fetchall()
