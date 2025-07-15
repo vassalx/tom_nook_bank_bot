@@ -1,22 +1,50 @@
-# Example cloudbuild.yaml for more secure env vars
+# cloudbuild.yaml
+# This file defines the CI/CD pipeline for deploying your Telegram bot
+# to Google Cloud Functions using Google Cloud Build.
+
 steps:
 - name: 'gcr.io/cloud-builders/gcloud'
   entrypoint: 'bash'
   args:
   - '-c'
   - |
-    TELEGRAM_TOKEN=$$(gcloud secrets versions access latest --secret=telegram-bot-token)
-    DB_HOST=$$(gcloud secrets versions access latest --secret=db-host)
-    DB_NAME=$$(gcloud secrets versions access latest --secret=db-name)
-    DB_USER=$$(gcloud secrets versions access latest --secret=db-user)
-    DB_PASSWORD=$$(gcloud secrets versions access latest --secret=db-password)
+    # Retrieve sensitive environment variables from Google Cloud Secret Manager
+    # This ensures your secrets are not exposed in your repository or build logs.
+    TELEGRAM_TOKEN=$$(gcloud secrets versions access latest --secret=telegram-bot-token --project=${PROJECT_ID})
+    DB_USER=$$(gcloud secrets versions access latest --secret=db-user --project=${PROJECT_ID})
+    DB_PASSWORD=$$(gcloud secrets versions access latest --secret=db-password --project=${PROJECT_ID})
+    DB_HOST=$$(gcloud secrets versions access latest --secret=db-host --project=${PROJECT_ID})
+    DB_PORT=$$(gcloud secrets versions access latest --secret=db-port --project=${PROJECT_ID})
+    DB_NAME=$$(gcloud secrets versions access latest --secret=db-name --project=${PROJECT_ID})
 
+    # Deploy the Google Cloud Function
+    # The --source=. argument tells Cloud Build to use the current directory (your repo)
+    # --entry-point webhook: Specifies the function in your main.py to execute
+    # --set-env-vars: Passes environment variables to your Cloud Function
+    # --region: Uses the Cloud Build substitution variable for the deployment region
+    # --allow-unauthenticated: Allows Telegram to send updates to your webhook URL
     gcloud functions deploy webhook \
       --source=. \
       --runtime=python310 \
       --trigger-http \
       --entry-point=webhook \
-      --set-env-vars TELEGRAM_TOKEN=$$TELEGRAM_TOKEN,GROUP_ID=${_GROUP_ID},DB_HOST=$$DB_HOST,DB_NAME=$$DB_NAME,DB_USER=$$DB_USER,DB_PASSWORD=$$DB_PASSWORD \
+      --set-env-vars TELEGRAM_TOKEN=$$TELEGRAM_TOKEN,GROUP_ID=${_GROUP_ID},DB_USER=$$DB_USER,DB_PASSWORD=$$DB_PASSWORD,DB_HOST=$$DB_HOST,DB_PORT=$$DB_PORT,DB_NAME=$$DB_NAME \
       --region ${_GCP_REGION} \
       --allow-unauthenticated
-timeout: 300s
+
+  id: 'Deploy Telegram Bot Function' # A descriptive ID for this build step
+
+timeout: 600s # Sets a timeout of 10 minutes for the entire build process.
+              # This provides ample time for dependency installation and deployment.
+
+# You can add more steps here if needed, e.g., for running tests before deployment.
+# For example:
+# - name: 'python:3.10'
+#   entrypoint: 'bash'
+#   args:
+#   - '-c'
+#   - |
+#     pip install -r requirements.txt
+#     # Run your tests here, e.g., pytest
+#     # pytest your_tests/
+#   id: 'Run Tests'
