@@ -4,8 +4,14 @@ from aiogram.enums import ChatType, ContentType
 from aiogram.types import ChatPermissions
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timedelta, timezone
-from config import BOT_TOKEN, GROUP_ID
+from dotenv import load_dotenv
+import os
 import database
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GROUP_ID = int(os.getenv("GROUP_ID"))
 
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
