@@ -16,7 +16,6 @@ def get_daily_amount(coins):
 # ✅ Allow commands in group
 @dp.message(Command("balance"), F.chat.id == GROUP_ID)
 async def balance(message: types.Message):
-    print('/balance')
     user_id = message.from_user.id
     database.add_user(user_id)
     coins, _ = database.get_user(user_id)
