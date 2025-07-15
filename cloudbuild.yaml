@@ -1,0 +1,22 @@
+# Example cloudbuild.yaml for more secure env vars
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    TELEGRAM_TOKEN=$$(gcloud secrets versions access latest --secret=telegram-bot-token)
+    DB_HOST=$$(gcloud secrets versions access latest --secret=db-host)
+    DB_NAME=$$(gcloud secrets versions access latest --secret=db-name)
+    DB_USER=$$(gcloud secrets versions access latest --secret=db-user)
+    DB_PASSWORD=$$(gcloud secrets versions access latest --secret=db-password)
+
+    gcloud functions deploy webhook \
+      --source=. \
+      --runtime=python310 \
+      --trigger-http \
+      --entry-point=webhook \
+      --set-env-vars TELEGRAM_TOKEN=$$TELEGRAM_TOKEN,GROUP_ID=${_GROUP_ID},DB_HOST=$$DB_HOST,DB_NAME=$$DB_NAME,DB_USER=$$DB_USER,DB_PASSWORD=$$DB_PASSWORD \
+      --region ${_GCP_REGION} \
+      --allow-unauthenticated
+timeout: 300s
