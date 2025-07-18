@@ -27,6 +27,10 @@ GROUP_ID = int(os.getenv("GROUP_ID")) # Ensure this is an integer
 WEB_SERVER_HOST = "0.0.0.0" # Listen on all available interfaces
 WEB_SERVER_PORT = int(os.getenv("PORT", 8080)) # Render provides the PORT
 
+# This is the path Telegram will send updates to. Keep it secret!
+# You can make this more complex for security, e.g., "/webhook/YOUR_SECRET_PATH"
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}" # Using BOT_TOKEN makes it unique
+
 # --- Bot and Dispatcher Initialization ---
 # Initialize bot outside the function for "warm" instances
 bot = Bot(BOT_TOKEN)
