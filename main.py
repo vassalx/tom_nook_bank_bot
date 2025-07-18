@@ -6,7 +6,6 @@ from aiogram.enums import ChatType, ContentType
 from aiogram.types import ChatPermissions
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timedelta, timezone
-from aiogram.dispatcher.webhook.aiohttp_server import SimpleRequestHandler # <--- NEW IMPORT
 import asyncio # <--- NEW IMPORT for webhook server
 
 # Assuming your database.py handles external, persistent storage
