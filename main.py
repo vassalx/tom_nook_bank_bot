@@ -1,12 +1,14 @@
 import os
 import json
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.enums import ChatType, ContentType
 from aiogram.types import ChatPermissions
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timedelta, timezone
-import asyncio # <--- NEW IMPORT for webhook server
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Assuming your database.py handles external, persistent storage
 import database 
@@ -178,38 +180,5 @@ async def handle_messages(message: types.Message):
         else:
             await message.delete()
 
-# --- NEW: Cloud Function Entry Point ---
-async def process_telegram_update(request):
-    """
-    Cloud Function entry point for Telegram webhooks.
-    This function will be called by Google Cloud Functions when Telegram sends an update.
-    """
-    if request.method == "POST":
-        # Get the JSON data from the request body
-        request_json = await request.get_json(silent=True)
-        if not request_json:
-            return 'OK', 200 # No JSON body, return OK to avoid Telegram re-sending
-
-        try:
-            # Process the update using aiogram's dispatcher
-            # This is the core of webhook handling with aiogram
-            await dp.feed_raw_update(bot, request_json)
-            return 'OK', 200 # Important: Return 200 OK as soon as possible
-        except Exception as e:
-            # Log any errors for debugging in Cloud Logging
-            print(f"Error processing update: {e}")
-            return f'Error: {e}', 500
-    else:
-        # Handle GET requests (e.g., for initial function URL testing)
-        return 'This is a Telegram bot webhook endpoint. Please send POST requests with updates.', 200
-
-# --- The 'main' function for Google Cloud Functions ---
-# This is the function name you'll provide to `--entry-point` during deployment.
-# It acts as a wrapper to allow asynchronous handling.
-def webhook(request):
-    """
-    Wrapper for the async process_telegram_update function.
-    Google Cloud Functions expects a synchronous function for Python HTTP triggers,
-    but we can run an async function inside it using asyncio.run.
-    """
-    return asyncio.run(process_telegram_update(request))
+if __name__ == "__main__":
+    dp.run_polling(bot)
