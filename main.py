@@ -7,6 +7,10 @@ from aiogram.types import ChatPermissions
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+# NEW IMPORTS for webhook server
+from aiohttp import web
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler
+
 
 load_dotenv()
 
@@ -17,6 +21,11 @@ import database
 # These will be passed to the Cloud Function during deployment (e.g., via --set-env-vars)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID")) # Ensure this is an integer
+
+# Webhook configuration for Render
+# Render provides the PORT environment variable
+WEB_SERVER_HOST = "0.0.0.0" # Listen on all available interfaces
+WEB_SERVER_PORT = int(os.getenv("PORT", 8080)) # Render provides the PORT
 
 # --- Bot and Dispatcher Initialization ---
 # Initialize bot outside the function for "warm" instances
@@ -180,5 +189,42 @@ async def handle_messages(message: types.Message):
         else:
             await message.delete()
 
+# --- NEW: Webhook Setup for Render ---
+async def on_startup(dispatcher: Dispatcher, bot: Bot):
+    """
+    This function will be called once when the bot starts up.
+    It's used to set the webhook URL on Telegram.
+    """
+    # Render provides the service URL as an environment variable
+    # We construct the full webhook URL including the secret path
+    webhook_url = os.getenv("RENDER_EXTERNAL_URL") + WEBHOOK_PATH
+    
+    # Set the webhook on Telegram
+    await bot.set_webhook(webhook_url)
+    print(f"Webhook set to: {webhook_url}")
+
+async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
+    """
+    This function will be called when the bot is shutting down.
+    It's good practice to delete the webhook from Telegram.
+    """
+    await bot.delete_webhook()
+    print("Webhook deleted.")
+    # Close database connections if your database.py has a global connection pool
+    # Or ensure connections are closed per request.
+
 if __name__ == "__main__":
-    dp.run_polling(bot)
+    # Create an aiohttp web application
+    app = web.Application()
+
+    # Register the webhook handler
+    # SimpleRequestHandler handles incoming Telegram updates and passes them to the dispatcher
+    SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
+
+    # Register startup and shutdown hooks
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+
+    # Start the aiohttp web server
+    # Render will provide the PORT environment variable to listen on
+    web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
