@@ -234,4 +234,4 @@ if __name__ == "__main__":
     # Render will provide the PORT environment variable to listen on
     web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
 
-print(os.getenv("RENDER_EXTERNAL_URL"))
+print(os.getenv("RENDER_EXTERNAL_URL"), flush=True)
