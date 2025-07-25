@@ -218,6 +218,7 @@ async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
     # Or ensure connections are closed per request.
 
 if __name__ == "__main__":
+    print("STARTS")
     # Create an aiohttp web application
     app = web.Application()
 
@@ -232,3 +233,5 @@ if __name__ == "__main__":
     # Start the aiohttp web server
     # Render will provide the PORT environment variable to listen on
     web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+
+print(os.getenv("RENDER_EXTERNAL_URL"))
