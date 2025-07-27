@@ -23,6 +23,7 @@ import database
 
 # --- CONFIGURATION (Environment Variables) ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+SECRET_TOKEN = os.getenv("SECRET_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID"))  # Ensure this is an integer
 
 # Webhook configuration for Render
