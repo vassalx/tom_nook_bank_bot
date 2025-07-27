@@ -209,16 +209,12 @@ async def handle_messages(message: types.Message):
 
 # --- NEW: Webhook Setup for Render ---
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    """
-    This function will be called once when the bot starts up.
-    It's used to set the webhook URL on Telegram.
-    """
-    # Set the webhook on Telegram
     try:
+        await bot.delete_webhook(drop_pending_updates=True)
         await bot.set_webhook(WEBHOOK_URL)
-        logger.info(f"Webhook set to: {WEBHOOK_URL}") # Changed print to logger.info
+        logger.info(f"Webhook set to: {WEBHOOK_URL}")
     except Exception as e:
-        logger.error(f"Failed to set webhook: {e}") # Log any errors
+        logger.error(f"Failed to set webhook: {e}")
 
 async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
     """
@@ -239,29 +235,16 @@ import asyncio
 if __name__ == "__main__":
     logger.info("Bot application starting...")
 
-    # Create an aiohttp web application
     app = web.Application()
 
-    # Register the webhook handler
+    # Register webhook handler
     SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
 
-    # Register startup and shutdown hooks
+    # Register startup/shutdown hooks
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    # Start the aiohttp web server in an async context
-    async def main():
-        # Start dispatcher manually so startup hooks (like webhook setup) get called
-        await dp.start(bot)
-        logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
-        logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
-        await site.start()
+    logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
+    logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
 
-        # Keep the app running
-        while True:
-            await asyncio.sleep(3600)
-
-    asyncio.run(main())
+    web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
