@@ -234,26 +234,41 @@ async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
     # Close database connections if your database.py has a global connection pool
     # Or ensure connections are closed per request.
 
-if __name__ == "__main__": # Corrected 'if name == "main":' to '__name__ == "__main__":'
-    logger.info("Bot application starting...") # Changed print to logger.info
+if __name__ == "__main__":
+    import asyncio
 
-    # Create an aiohttp web application
-    app = web.Application()
+    async def main():
+        logger.info("Bot application starting...")
 
-    # Register the webhook handler
-    # SimpleRequestHandler handles incoming Telegram updates and passes them to the dispatcher
-    # Ensure the secret_token matches what you might set in Telegram (if using a different one)
-    # For now, keeping it as BOT_TOKEN as per your original code.
-    SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
+        # Create web application
+        app = web.Application()
 
-    # Register startup and shutdown hooks
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
+        # Register webhook handler
+        SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
 
-    # Start the aiohttp web server
-    logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}") # Added log
-    logger.info(f"Expected webhook URL: {WEBHOOK_URL}") # Added log
+        # Register startup/shutdown hooks
+        dp.startup.register(on_startup)
+        dp.shutdown.register(on_shutdown)
 
-    # Render will provide the PORT environment variable to listen on
-    web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+        # --- IMPORTANT ---
+        # Manually emit startup so webhook gets set
+        await dp.startup.emit(bot)
 
+        logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
+        logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
+
+        try:
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+            await site.start()
+
+            # Run forever (until shutdown)
+            while True:
+                await asyncio.sleep(3600)
+        except Exception as e:
+            logger.error(f"Web server crashed: {e}")
+        finally:
+            await dp.shutdown.emit(bot)
+
+    asyncio.run(main())
