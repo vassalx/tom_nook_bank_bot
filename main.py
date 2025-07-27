@@ -240,11 +240,20 @@ if __name__ == "__main__":
     # Register webhook handler
     SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
 
-    # Register startup/shutdown hooks
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
+    async def start():
+        # --- Explicitly call your startup logic here ---
+        await on_startup(dp, bot)
 
-    logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
-    logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
+        # Run the web server
+        logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
+        logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+        await site.start()
 
-    web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+        # Keep the app alive
+        while True:
+            await asyncio.sleep(3600)
+
+    asyncio.run(start())
