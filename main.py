@@ -234,41 +234,34 @@ async def on_shutdown(dispatcher: Dispatcher, bot: Bot):
     # Close database connections if your database.py has a global connection pool
     # Or ensure connections are closed per request.
 
+import asyncio
+
 if __name__ == "__main__":
-    import asyncio
+    logger.info("Bot application starting...")
 
+    # Create an aiohttp web application
+    app = web.Application()
+
+    # Register the webhook handler
+    SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
+
+    # Register startup and shutdown hooks
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+
+    # Start the aiohttp web server in an async context
     async def main():
-        logger.info("Bot application starting...")
-
-        # Create web application
-        app = web.Application()
-
-        # Register webhook handler
-        SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=BOT_TOKEN).register(app, path=WEBHOOK_PATH)
-
-        # Register startup/shutdown hooks
-        dp.startup.register(on_startup)
-        dp.shutdown.register(on_shutdown)
-
-        # --- IMPORTANT ---
-        # Manually emit startup so webhook gets set
-        await dp.startup.emit(bot)
-
+        # Start dispatcher manually so startup hooks (like webhook setup) get called
+        await dp.start(bot)
         logger.info(f"Starting web server on {WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
         logger.info(f"Expected webhook URL: {WEBHOOK_URL}")
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+        await site.start()
 
-        try:
-            runner = web.AppRunner(app)
-            await runner.setup()
-            site = web.TCPSite(runner, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
-            await site.start()
-
-            # Run forever (until shutdown)
-            while True:
-                await asyncio.sleep(3600)
-        except Exception as e:
-            logger.error(f"Web server crashed: {e}")
-        finally:
-            await dp.shutdown.emit(bot)
+        # Keep the app running
+        while True:
+            await asyncio.sleep(3600)
 
     asyncio.run(main())
