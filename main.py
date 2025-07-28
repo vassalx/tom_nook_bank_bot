@@ -56,14 +56,15 @@ def get_daily_amount(coins):
 
 @dp.message(Command("balance"), F.chat.id == GROUP_ID)
 async def balance(message: types.Message):
+    handle_messages(message)
     user_id = message.from_user.id
-    database.add_user(user_id)
     coins, _ = database.get_user(user_id)
     logger.info(f"User {user_id} requested balance: {coins}") # Added log
     await message.reply(f"💰 Your balance: {coins} coins")
 
 @dp.message(Command("send"), F.chat.id == GROUP_ID)
 async def send_coins(message: types.Message):
+    handle_messages(message)
     args = message.text.split()
     if len(args) != 3:
         await message.reply("Usage: /send @username amount")
@@ -77,7 +78,6 @@ async def send_coins(message: types.Message):
         return
 
     user_id = message.from_user.id
-    database.add_user(user_id)
     coins, _ = database.get_user(user_id)
 
     if amount <= 0 or coins < amount:
@@ -85,28 +85,25 @@ async def send_coins(message: types.Message):
         return
 
     try:
-        members = await bot.get_chat_administrators(GROUP_ID)
-        target_user = None
-        for m in members:
-            if m.user.username and m.user.username.lower() == target_username.lower():
-                target_user = m.user
-                break
-        if target_user is None:
+        # Note: get_chat_administrators only gets admins. 
+        # If the target user is not an admin, this will fail.
+        # Consider alternatives if you need to find non-admin users.
+        target_user_id = database.find_user_id_by_username(target_username)
+        if target_user_id is None:
             raise Exception("User not found or not an admin in the group.")
-        target_user_id = target_user.id
     except Exception as e:
         logger.error(f"Error finding target user {target_username}: {e}") # Added log
         await message.reply(f"User not found in group or error: {e}")
         return
 
     database.update_coins(user_id, -amount)
-    database.add_user(target_user_id)
     database.update_coins(target_user_id, amount)
     logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
     await message.reply(f"✅ Sent {amount} coins to @{target_username}.")
 
 @dp.message(Command("sit"), F.chat.id == GROUP_ID)
 async def sit_on_user(message: types.Message):
+    handle_messages(message)
     args = message.text.split()
     if len(args) != 2:
         await message.reply("Usage: /sit @username")
@@ -114,7 +111,6 @@ async def sit_on_user(message: types.Message):
 
     target_username = args[1].lstrip("@")
     user_id = message.from_user.id
-    database.add_user(user_id)
     user_coins, _ = database.get_user(user_id)
 
     top_users = database.get_top_users()
@@ -140,7 +136,6 @@ async def sit_on_user(message: types.Message):
         await message.reply("🚫 This user is in the top 20% and is immune.")
         return
 
-    database.add_user(target_user_id)
     target_coins, _ = database.get_user(target_user_id)
 
     if user_coins <= target_coins:
@@ -162,6 +157,7 @@ async def sit_on_user(message: types.Message):
 
 @dp.message(Command("leaderboard"), F.chat.id == GROUP_ID)
 async def leaderboard(message: types.Message):
+    handle_messages(message)
     top_users = database.get_top_users(limit=10)
     if not top_users:
         await message.reply("No one has any coins yet. Get chatting to earn some!")
@@ -183,7 +179,7 @@ async def leaderboard(message: types.Message):
 @dp.message(F.chat.id == GROUP_ID)
 async def handle_messages(message: types.Message):
     user_id = message.from_user.id
-    database.add_user(user_id)
+    database.add_user(user_id, username=message.from_user.username)
     coins, last_claim = database.get_user(user_id)
 
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -203,7 +199,7 @@ async def handle_messages(message: types.Message):
             database.update_coins(user_id, -1)
             coins -= 1
             logger.info(f"User {user_id} sent sticker, -1 coin. Balance: {coins}") # Added log
-            await message.reply(f"😼 Sent a sticker, -1 coin! Your balance: {coins}")
+            # await message.reply(f"😼 Sent a sticker, -1 coin! Your balance: {coins}")
         else:
             await message.delete()
             logger.info(f"Deleted sticker from user {user_id} due to 0 coins.") # Added log

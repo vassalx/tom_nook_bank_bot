@@ -28,17 +28,26 @@ try:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id BIGINT PRIMARY KEY,
+            username TEXT,
             coins INTEGER DEFAULT 0,
             last_claim TEXT DEFAULT ''
         )
         """)
 
-    def add_user(user_id):
+    def add_user(user_id, username=None):
         with connection.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO users (user_id) VALUES (%s)
-                ON CONFLICT (user_id) DO NOTHING
-            """, (user_id,))
+            if username:
+                cursor.execute("""
+                    INSERT INTO users (user_id, username)
+                    VALUES (%s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username
+                """, (user_id, username))
+            else:
+                cursor.execute("""
+                    INSERT INTO users (user_id)
+                    VALUES (%s)
+                    ON CONFLICT (user_id) DO NOTHING
+                """, (user_id,))
 
     def get_user(user_id):
         with connection.cursor() as cursor:
@@ -72,6 +81,14 @@ try:
                 SELECT user_id, coins FROM users ORDER BY coins DESC LIMIT %s
             """, (limit,))
             return cursor.fetchall()
+
+    def find_user_id_by_username(username):
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT user_id FROM users WHERE LOWER(username) = LOWER(%s)
+            """, (username,))
+            result = cursor.fetchone()
+            return result[0] if result else None
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")
