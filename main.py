@@ -141,26 +141,25 @@ async def request_coins(message: types.Message):
         return
 
     # Save request info in callback data
-    callback_data = f"approve_request:{requester_id}:{amount}"
+    callback_data = f"approve_request:{requester_id}:{amount}:{message.message_id}"
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Approve", callback_data=callback_data)],
         [InlineKeyboardButton(text="❌ Decline", callback_data="decline_request")]
     ])
 
-    await bot.send_message(
-        chat_id=target_user_id,
-        text=f"💸 {requester_name} is requesting {amount} coins from you.\nDo you approve?",
+    await message.reply(
+        f"💸 @{target_username}, {requester_name} is requesting {amount} coins from you.\nDo you approve?",
         reply_markup=keyboard
     )
-    await message.reply("📨 Request sent.")
 
 @dp.callback_query(F.data.startswith("approve_request:"))
 async def approve_request(callback: types.CallbackQuery):
-    _, requester_id_str, amount_str = callback.data.split(":")
-    requester_id = int(requester_id_str)
-    amount = int(amount_str)
+    parts = callback.data.split(":")
+    requester_id = int(parts[1])
+    amount = int(parts[2])
     giver_id = callback.from_user.id
+    giver_name = callback.from_user.full_name
 
     giver_balance, _ = database.get_user(giver_id)
 
@@ -172,10 +171,14 @@ async def approve_request(callback: types.CallbackQuery):
     database.add_user(requester_id)
     database.update_coins(requester_id, amount)
 
-    await callback.message.edit_text(f"✅ You approved the request. {amount} coins sent to user {requester_id}.")
-    await bot.send_message(
-        chat_id=requester_id,
-        text=f"🎉 Your request was approved! You received {amount} coins."
+    await callback.message.edit_text(
+        f"✅ {giver_name} approved the request and sent {amount} coins to user {requester_id}."
+    )
+
+    # Optionally mention the requester in the group
+    await callback.message.answer(
+        f"🎉 <a href='tg://user?id={requester_id}'>You</a> received {amount} coins from {giver_name}!",
+        parse_mode="HTML"
     )
 
 @dp.callback_query(F.data == "decline_request")
