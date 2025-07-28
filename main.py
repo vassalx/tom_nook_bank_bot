@@ -5,10 +5,10 @@ import sys # NEW: Import sys for logging
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.enums import ChatType, ContentType
-from aiogram.types import ChatPermissions
+from aiogram.enums import ContentType
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.markdown import hbold
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # NEW IMPORTS for webhook server
@@ -101,53 +101,133 @@ async def send_coins(message: types.Message):
     logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
     await message.reply(f"✅ Sent {amount} coins to @{target_username}.")
 
-@dp.message(Command("sit"), F.chat.id == GROUP_ID)
-async def sit_on_user(message: types.Message):
-    handle_messages(message)
+@dp.message(Command("request"), F.chat.id == GROUP_ID)
+async def request_coins(message: types.Message):
     args = message.text.split()
-    if len(args) != 2:
-        await message.reply("Usage: /sit @username")
+    if len(args) != 3:
+        await message.reply("Usage: /request @username amount (or 'all')")
         return
 
     target_username = args[1].lstrip("@")
-    user_id = message.from_user.id
-    user_coins, _ = database.get_user(user_id)
-
-    top_users = database.get_top_users()
-    top_20_percent = top_users[:max(1, len(top_users)//5)]
-    immune_ids = [u[0] for u in top_20_percent]
+    amount_str = args[2]
+    requester_id = message.from_user.id
+    requester_name = message.from_user.full_name
 
     try:
         target_user_id = database.find_user_id_by_username(target_username)
         if target_user_id is None:
-            raise Exception("User not found or not an admin in the group.")
+            raise Exception("User not found.")
     except Exception as e:
-        logger.error(f"Error finding target user {target_username}: {e}") # Added log
-        await message.reply(f"User not found in group or error: {e}")
+        await message.reply(f"User not found or error: {e}")
         return
 
-    if target_user_id in immune_ids:
-        await message.reply("🚫 This user is in the top 20% and is immune.")
+    if target_user_id == requester_id:
+        await message.reply("You can't request coins from yourself.")
         return
 
-    target_coins, _ = database.get_user(target_user_id)
+    # Determine amount
+    if amount_str.lower() == "all":
+        target_balance, _ = database.get_user(target_user_id)
+        amount = target_balance
+    else:
+        try:
+            amount = int(amount_str)
+        except ValueError:
+            await message.reply("Amount must be a number or 'all'.")
+            return
 
-    if user_coins <= target_coins:
-        await message.reply("You need to have more coins than the user to sit on them.")
+    if amount <= 0:
+        await message.reply("Invalid amount.")
         return
 
-    try:
-        await bot.restrict_chat_member(
-            GROUP_ID,
-            target_user_id,
-            permissions=ChatPermissions(can_send_messages=False),
-            until_date=datetime.now(timezone.utc) + timedelta(minutes=5)
-        )
-        logger.info(f"User {user_id} sat on {target_user_id}, muted for 5 mins.") # Added log
-        await message.reply(f"🍑 You sat on @{target_username}! Muted for 5 minutes.")
-    except Exception as e:
-        logger.error(f"Failed to restrict user {target_user_id}: {e}") # Added log
-        await message.reply(f"Failed to restrict user: {e}")
+    # Save request info in callback data
+    callback_data = f"approve_request:{requester_id}:{amount}"
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Approve", callback_data=callback_data)],
+        [InlineKeyboardButton(text="❌ Decline", callback_data="decline_request")]
+    ])
+
+    await bot.send_message(
+        chat_id=target_user_id,
+        text=f"💸 {requester_name} is requesting {amount} coins from you.\nDo you approve?",
+        reply_markup=keyboard
+    )
+    await message.reply("📨 Request sent.")
+
+@dp.callback_query(F.data.startswith("approve_request:"))
+async def approve_request(callback: types.CallbackQuery):
+    _, requester_id_str, amount_str = callback.data.split(":")
+    requester_id = int(requester_id_str)
+    amount = int(amount_str)
+    giver_id = callback.from_user.id
+
+    giver_balance, _ = database.get_user(giver_id)
+
+    if giver_balance < amount:
+        await callback.message.edit_text("❌ You don't have enough coins to approve this request.")
+        return
+
+    database.update_coins(giver_id, -amount)
+    database.add_user(requester_id)
+    database.update_coins(requester_id, amount)
+
+    await callback.message.edit_text(f"✅ You approved the request. {amount} coins sent to user {requester_id}.")
+    await bot.send_message(
+        chat_id=requester_id,
+        text=f"🎉 Your request was approved! You received {amount} coins."
+    )
+
+@dp.callback_query(F.data == "decline_request")
+async def decline_request(callback: types.CallbackQuery):
+    await callback.message.edit_text("❌ You declined the coin request.")
+
+# @dp.message(Command("sit"), F.chat.id == GROUP_ID)
+# async def sit_on_user(message: types.Message):
+#     handle_messages(message)
+#     args = message.text.split()
+#     if len(args) != 2:
+#         await message.reply("Usage: /sit @username")
+#         return
+
+#     target_username = args[1].lstrip("@")
+#     user_id = message.from_user.id
+#     user_coins, _ = database.get_user(user_id)
+
+#     top_users = database.get_top_users()
+#     immune_ids = [u[0] for u in top_users]
+
+#     try:
+#         target_user_id = database.find_user_id_by_username(target_username)
+#         if target_user_id is None:
+#             raise Exception("User not found or not an admin in the group.")
+#     except Exception as e:
+#         logger.error(f"Error finding target user {target_username}: {e}") # Added log
+#         await message.reply(f"User not found in group or error: {e}")
+#         return
+
+#     if target_user_id in immune_ids:
+#         await message.reply("🚫 This user is in the top 10 users and is immune.")
+#         return
+
+#     target_coins, _ = database.get_user(target_user_id)
+
+#     if user_coins <= target_coins:
+#         await message.reply("You need to have more coins than the user to sit on them.")
+#         return
+
+#     try:
+#         await bot.restrict_chat_member(
+#             GROUP_ID,
+#             target_user_id,
+#             permissions=ChatPermissions(can_send_messages=False),
+#             until_date=datetime.now(timezone.utc) + timedelta(minutes=5)
+#         )
+#         logger.info(f"User {user_id} sat on {target_user_id}, muted for 5 mins.") # Added log
+#         await message.reply(f"🍑 You sat on @{target_username}! Muted for 5 minutes.")
+#     except Exception as e:
+#         logger.error(f"Failed to restrict user {target_user_id}: {e}") # Added log
+#         await message.reply(f"Failed to restrict user: {e}")
 
 @dp.message(Command("leaderboard"), F.chat.id == GROUP_ID)
 async def leaderboard(message: types.Message):
