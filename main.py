@@ -118,15 +118,9 @@ async def sit_on_user(message: types.Message):
     immune_ids = [u[0] for u in top_20_percent]
 
     try:
-        members = await bot.get_chat_administrators(GROUP_ID)
-        target_user = None
-        for m in members:
-            if m.user.username and m.user.username.lower() == target_username.lower():
-                target_user = m.user
-                break
-        if target_user is None:
+        target_user_id = database.find_user_id_by_username(target_username)
+        if target_user_id is None:
             raise Exception("User not found or not an admin in the group.")
-        target_user_id = target_user.id
     except Exception as e:
         logger.error(f"Error finding target user {target_username}: {e}") # Added log
         await message.reply(f"User not found in group or error: {e}")
