@@ -246,7 +246,7 @@ async def leaderboard(message: types.Message):
             member = await bot.get_chat_member(GROUP_ID, user_id)
             name = member.user.first_name
             if member.user.username:
-                name = f"@{member.user.username}"
+                name = f"{member.user.username}"
         except Exception:
             name = f"[unknown user {user_id}]"
         text += f"{idx}. {name} — {coins} coins\n"
