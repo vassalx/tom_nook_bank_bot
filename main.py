@@ -98,6 +98,8 @@ async def send_coins(message: types.Message):
 
     database.update_coins(user_id, -amount)
     database.update_coins(target_user_id, amount)
+    database.log_transaction(user_id, "send", -amount, target_user_id)
+    database.log_transaction(target_user_id, "receive", amount, user_id)
     logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
     await message.reply(f"✅ Sent {amount} coins to @{target_username}.")
 
@@ -264,6 +266,7 @@ async def handle_messages(message: types.Message):
         daily_amount = get_daily_amount(coins)
         database.update_coins(user_id, daily_amount)
         database.set_last_claim(user_id, today_str)
+        database.log_transaction(user_id, "daily_claim", daily_amount)
         logger.info(f"User {user_id} claimed daily coins: +{daily_amount}") # Added log
         # await message.reply(f"✅ Daily claim: +{daily_amount} coins! Your balance: {coins + daily_amount}")
 
@@ -274,6 +277,7 @@ async def handle_messages(message: types.Message):
     if message.content_type == ContentType.STICKER:
         if coins > 0:
             database.update_coins(user_id, -1)
+            database.log_transaction(user_id, "sticker_penalty", -1)
             coins -= 1
             logger.info(f"User {user_id} sent sticker, -1 coin. Balance: {coins}") # Added log
             # await message.reply(f"😼 Sent a sticker, -1 coin! Your balance: {coins}")
