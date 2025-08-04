@@ -109,17 +109,9 @@ async def handle_request_response(callback: CallbackQuery):
 
     from_id, to_id, amount = req
 
-    if not req:
-        await callback.answer("This request no longer exists.", show_alert=True)
-        return
-
-    if callback.from_user.id != req["to_id"]:
+    if callback.from_user.id != to_id:
         await callback.answer("You're not allowed to respond to this request.", show_alert=True)
         return
-
-    from_id = req["from_id"]
-    to_id = req["to_id"]
-    amount = req["amount"]
 
     if action == "confirm":
         database.add_user(from_id)
