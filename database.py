@@ -1,7 +1,7 @@
 import psycopg2
 from dotenv import load_dotenv
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Load environment variables from .env
 load_dotenv()
@@ -48,13 +48,22 @@ try:
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pending_requests (
+        request_id TEXT PRIMARY KEY,
+        from_id INTEGER NOT NULL,
+        to_id INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """)
+
     def log_transaction(user_id: int, tx_type: str, amount: int, target_user_id: int = None):
         timestamp = datetime.now(timezone.utc).isoformat()
         cursor.execute("""
             INSERT INTO transactions (user_id, type, amount, timestamp, target_user_id)
             VALUES (?, ?, ?, ?, ?)
         """, (user_id, tx_type, amount, timestamp, target_user_id))
-        connection.commit()
 
     def add_user(user_id, username=None):
         if username:
@@ -107,6 +116,25 @@ try:
         """, (username,))
         result = cursor.fetchone()
         return result[0] if result else None
+    
+    def add_pending_request(request_id: str, from_id: int, to_id: int, amount: int):
+        created_at = datetime.now(timezone.utc).isoformat()
+        cursor.execute(
+            "INSERT INTO pending_requests (request_id, from_id, to_id, amount, created_at) VALUES (?, ?, ?, ?, ?)",
+            (request_id, from_id, to_id, amount, created_at)
+        )
+
+    def get_pending_request(request_id: str):
+        cursor.execute("SELECT from_id, to_id, amount FROM pending_requests WHERE request_id = ?", (request_id,))
+        row = cursor.fetchone()
+        return row if row else None
+
+    def delete_pending_request(request_id: str):
+        cursor.execute("DELETE FROM pending_requests WHERE request_id = ?", (request_id,))
+
+    def cleanup_old_requests(days: int = 1):
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cursor.execute("DELETE FROM pending_requests WHERE created_at < ?", (cutoff,))
             
 
 except Exception as e:

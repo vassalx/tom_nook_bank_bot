@@ -6,7 +6,7 @@ import sys # NEW: Import sys for logging
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.enums import ContentType
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -53,6 +53,96 @@ dp = Dispatcher()
 # --- Your Existing Bot Logic (Handlers) ---
 def get_daily_amount(coins):
     return 10 + coins // 100
+
+@dp.message(Command("request"), F.chat.id == GROUP_ID)
+async def request_coins(message: types.Message):
+    args = message.text.split()
+    if len(args) != 3:
+        await message.reply("Usage: /request @username amount")
+        return
+
+    requester_id = message.from_user.id
+    requester_name = message.from_user.full_name
+    target_username = args[1].lstrip("@")
+    
+    try:
+        amount = int(args[2])
+    except ValueError:
+        await message.reply("Amount must be a number.")
+        return
+
+    if amount <= 0:
+        await message.reply("Amount must be positive.")
+        return
+
+    # Find target user
+    members = await bot.get_chat_administrators(GROUP_ID)
+    target_user = next((m.user for m in members if m.user.username and m.user.username.lower() == target_username.lower()), None)
+
+    if not target_user:
+        await message.reply("User not found or not an admin in the group.")
+        return
+
+    request_id = f"{requester_id}:{target_user.id}:{amount}:{datetime.now().timestamp()}"
+    database.add_pending_request(request_id, requester_id, target_user.id, amount)
+
+    # Buttons
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Confirm", callback_data=f"confirm:{request_id}"),
+            InlineKeyboardButton(text="❌ Deny", callback_data=f"deny:{request_id}")
+        ]
+    ])
+
+    text = (
+        f"💸 <b>Coin Request</b>\n\n"
+        f"{requester_name} is requesting <b>{amount}</b> coins from @{target_username}."
+    )
+    await message.reply(text, reply_markup=kb, parse_mode="HTML")
+
+@dp.callback_query(F.data.startswith("confirm:") | F.data.startswith("deny:"))
+async def handle_request_response(callback: CallbackQuery):
+    action, request_id = callback.data.split(":")
+    req = database.get_pending_request(request_id)
+    if not req:
+        await callback.answer("This request no longer exists.", show_alert=True)
+        return
+
+    from_id, to_id, amount = req
+
+    if not req:
+        await callback.answer("This request no longer exists.", show_alert=True)
+        return
+
+    if callback.from_user.id != req["to_id"]:
+        await callback.answer("You're not allowed to respond to this request.", show_alert=True)
+        return
+
+    from_id = req["from_id"]
+    to_id = req["to_id"]
+    amount = req["amount"]
+
+    if action == "confirm":
+        database.add_user(from_id)
+        database.add_user(to_id)
+
+        to_balance, _ = database.get_user(to_id)
+        if to_balance < amount:
+            await callback.message.edit_text("❌ Not enough coins to fulfill the request.")
+        else:
+            database.update_coins(to_id, -amount)
+            database.update_coins(from_id, amount)
+            await callback.message.edit_text(
+                f"✅ Request confirmed!\n{amount} coins sent from {callback.from_user.full_name} to <a href='tg://user?id={from_id}'>requester</a>.",
+                parse_mode="HTML"
+            )
+    else:
+        await callback.message.edit_text(
+            f"❌ Request denied by {callback.from_user.full_name}."
+        )
+
+    database.delete_pending_request(request_id)
+    await callback.answer()
 
 @dp.message(Command("balance"), F.chat.id == GROUP_ID)
 async def balance(message: types.Message):
