@@ -76,15 +76,14 @@ async def request_coins(message: types.Message):
         return
 
     # Find target user
-    members = await bot.get_chat_administrators(GROUP_ID)
-    target_user = next((m.user for m in members if m.user.username and m.user.username.lower() == target_username.lower()), None)
+    target_user_id = database.find_user_id_by_username(target_username)
 
-    if not target_user:
+    if not target_user_id:
         await message.reply("User not found or not an admin in the group.")
         return
 
-    request_id = f"{requester_id}:{target_user.id}:{amount}:{datetime.now().timestamp()}"
-    database.add_pending_request(request_id, requester_id, target_user.id, amount)
+    request_id = f"{requester_id}:{target_user_id}:{amount}:{datetime.now().timestamp()}"
+    database.add_pending_request(request_id, requester_id, target_user_id, amount)
 
     # Buttons
     kb = InlineKeyboardMarkup(inline_keyboard=[
