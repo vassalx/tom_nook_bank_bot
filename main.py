@@ -146,7 +146,6 @@ async def handle_request_response(callback: CallbackQuery):
 
 @dp.message(Command("balance"), F.chat.id == GROUP_ID)
 async def balance(message: types.Message):
-    handle_messages(message)
     user_id = message.from_user.id
     coins, _ = database.get_user(user_id)
     logger.info(f"User {user_id} requested balance: {coins}") # Added log
@@ -154,7 +153,6 @@ async def balance(message: types.Message):
 
 @dp.message(Command("send"), F.chat.id == GROUP_ID)
 async def send_coins(message: types.Message):
-    handle_messages(message)
     args = message.text.split()
     if len(args) != 3:
         await message.reply("Usage: /send @username amount")
@@ -326,7 +324,6 @@ async def decline_request(callback: types.CallbackQuery):
 
 @dp.message(Command("leaderboard"), F.chat.id == GROUP_ID)
 async def leaderboard(message: types.Message):
-    handle_messages(message)
     top_users = database.get_top_users(limit=10)
     if not top_users:
         await message.reply("No one has any coins yet. Get chatting to earn some!")
