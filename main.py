@@ -24,6 +24,7 @@ import database
 # --- CONFIGURATION (Environment Variables) ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SECRET_TOKEN = os.getenv("SECRET_TOKEN")
+WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID"))  # Ensure this is an integer
 
 # Webhook configuration for Render
@@ -34,7 +35,7 @@ WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 # This is the path Telegram will send updates to. Keep it secret!
 # Using BOT_TOKEN makes it unique, but a truly random string is more secure.
 # For this fix, we'll keep your original logic.
-WEBHOOK_PATH = f"/webhook/{SECRET_TOKEN}"
+WEBHOOK_PATH = f"/webhook/{WEBHOOK_TOKEN}"
 
 # Build the full webhook URL. RENDER_EXTERNAL_URL is provided by Render.
 WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL") + WEBHOOK_PATH
