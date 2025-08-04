@@ -103,6 +103,7 @@ async def request_coins(message: types.Message):
 async def handle_request_response(callback: CallbackQuery):
     action, request_id = callback.data.split(":")
     req = database.get_pending_request(request_id)
+    logger.info(f"User {callback.from_user.username} tried to respond to /request: {callback.data}") # Added log
     if not req:
         await callback.answer("This request no longer exists.", show_alert=True)
         return
