@@ -62,7 +62,7 @@ async def request_coins(message: types.Message):
         return
 
     requester_id = message.from_user.id
-    requester_name = message.from_user.full_name
+    requester_username = message.from_user.username
     target_username = args[1].lstrip("@")
     
     try:
@@ -82,8 +82,8 @@ async def request_coins(message: types.Message):
         await message.reply("User not found or not an admin in the group.")
         return
 
-    request_id = f"{requester_id}:{target_user_id}:{amount}:{datetime.now().timestamp()}"
-    database.add_pending_request(request_id, requester_id, target_user_id, amount)
+    request_id = f"{requester_id}-{target_user_id}-{amount}-{datetime.now().timestamp()}"
+    database.add_pending_request(request_id, requester_id, target_user_id, requester_username, target_username, amount)
 
     # Buttons
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -95,7 +95,7 @@ async def request_coins(message: types.Message):
 
     text = (
         f"💸 <b>Coin Request</b>\n\n"
-        f"{requester_name} is requesting <b>{amount}</b> coins from @{target_username}."
+        f"@{requester_username} is requesting <b>{amount}</b> coins from @{target_username}."
     )
     await message.reply(text, reply_markup=kb, parse_mode="HTML")
 
@@ -107,7 +107,7 @@ async def handle_request_response(callback: CallbackQuery):
         await callback.answer("This request no longer exists.", show_alert=True)
         return
 
-    from_id, to_id, amount = req
+    from_id, to_id, from_username, to_username, amount = req
 
     if callback.from_user.id != to_id:
         await callback.answer("You're not allowed to respond to this request.", show_alert=True)
@@ -124,12 +124,11 @@ async def handle_request_response(callback: CallbackQuery):
             database.update_coins(to_id, -amount)
             database.update_coins(from_id, amount)
             await callback.message.edit_text(
-                f"✅ Request confirmed!\n{amount} coins sent from {callback.from_user.full_name} to <a href='tg://user?id={from_id}'>requester</a>.",
-                parse_mode="HTML"
+                f"✅ Request confirmed!\n{amount} coins sent from @{to_username} to @{from_username}"
             )
     else:
         await callback.message.edit_text(
-            f"❌ Request denied by {callback.from_user.full_name}."
+            f"❌ Request denied by @{to_username}"
         )
 
     database.delete_pending_request(request_id)

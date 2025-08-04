@@ -56,6 +56,9 @@ try:
         from_id BIGINT NOT NULL,
         to_id BIGINT NOT NULL,
         amount INTEGER NOT NULL,
+        from_username TEXT,
+        to_username TEXT,
+        status TEXT,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL
     )
     """)
@@ -106,15 +109,15 @@ try:
         result = cursor.fetchone()
         return result[0] if result else None
 
-    def add_pending_request(request_id: str, from_id: int, to_id: int, amount: int):
+    def add_pending_request(request_id: str, from_id: int, to_id: int, from_username: str, to_username: str, amount: int):
         created_at = datetime.now(timezone.utc)
         cursor.execute("""
-            INSERT INTO pending_requests (request_id, from_id, to_id, amount, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (request_id, from_id, to_id, amount, created_at))
+            INSERT INTO pending_requests (request_id, from_id, to_id, from_username, to_username, amount, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (request_id, from_id, to_id, from_username, to_username, amount, created_at))
 
     def get_pending_request(request_id: str):
-        cursor.execute("SELECT from_id, to_id, amount FROM pending_requests WHERE request_id = %s", (request_id,))
+        cursor.execute("SELECT from_id, to_id, from_username, to_username, amount FROM pending_requests WHERE request_id = %s", (request_id,))
         row = cursor.fetchone()
         return row if row else None
 
