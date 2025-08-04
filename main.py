@@ -265,7 +265,7 @@ async def handle_messages(message: types.Message):
         database.update_coins(user_id, daily_amount)
         database.set_last_claim(user_id, today_str)
         logger.info(f"User {user_id} claimed daily coins: +{daily_amount}") # Added log
-        await message.reply(f"✅ Daily claim: +{daily_amount} coins! Your balance: {coins + daily_amount}")
+        # await message.reply(f"✅ Daily claim: +{daily_amount} coins! Your balance: {coins + daily_amount}")
 
     if coins == 0 and message.content_type in [ContentType.STICKER, ContentType.PHOTO, ContentType.VIDEO, ContentType.ANIMATION]:
         await message.delete()
@@ -285,7 +285,7 @@ async def handle_messages(message: types.Message):
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        await bot.set_webhook(WEBHOOK_URL, secret_token=SECRET_TOKEN)
+        await bot.set_webhook(WEBHOOK_URL, secret_token=SECRET_TOKEN, request_timeout=30)
         logger.info(f"Webhook set to: {WEBHOOK_URL}")
     except Exception as e:
         logger.error(f"Failed to set webhook: {e}")
