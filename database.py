@@ -30,9 +30,10 @@ try:
     # Users table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
+        user_id BIGINT PRIMARY KEY,
+        username TEXT,
         coins INTEGER DEFAULT 0,
-        last_claim TEXT DEFAULT NULL
+        last_claim TIMESTAMP WITH TIME ZONE DEFAULT NULL
     )
     """)
 
@@ -40,29 +41,32 @@ try:
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS transactions (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER,
+        user_id BIGINT,
         type TEXT,
         amount INTEGER,
-        timestamp TEXT,
-        target_user_id INTEGER DEFAULT NULL
+        timestamp TIMESTAMP WITH TIME ZONE,
+        target_user_id BIGINT
     )
     """)
 
+    # Pending Requests table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS pending_requests (
         request_id TEXT PRIMARY KEY,
-        from_id INTEGER NOT NULL,
-        to_id INTEGER NOT NULL,
+        from_id BIGINT NOT NULL,
+        to_id BIGINT NOT NULL,
         amount INTEGER NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL
     )
     """)
 
+    # === FUNCTIONS ===
+
     def log_transaction(user_id: int, tx_type: str, amount: int, target_user_id: int = None):
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(timezone.utc)
         cursor.execute("""
             INSERT INTO transactions (user_id, type, amount, timestamp, target_user_id)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, (user_id, tx_type, amount, timestamp, target_user_id))
 
     def add_user(user_id, username=None):
@@ -78,64 +82,48 @@ try:
                 VALUES (%s)
                 ON CONFLICT (user_id) DO NOTHING
             """, (user_id,))
-    def get_user(user_id):
-        cursor.execute("""
-            SELECT coins, last_claim FROM users WHERE user_id = %s
-        """, (user_id,))
-        row = cursor.fetchone()
-        return row if row else (0, "")
-    
-    def update_coins(user_id, amount):
-        cursor.execute("""
-            UPDATE users SET coins = coins + %s WHERE user_id = %s
-        """, (amount, user_id))
-            
 
-    def set_last_claim(user_id, date_str):
-        cursor.execute("""
-            UPDATE users SET last_claim = %s WHERE user_id = %s
-        """, (date_str, user_id))
-            
+    def get_user(user_id):
+        cursor.execute("SELECT coins, last_claim FROM users WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        return row if row else (0, None)
+
+    def update_coins(user_id, amount):
+        cursor.execute("UPDATE users SET coins = coins + %s WHERE user_id = %s", (amount, user_id))
+
+    def set_last_claim(user_id, date_time):
+        cursor.execute("UPDATE users SET last_claim = %s WHERE user_id = %s", (date_time, user_id))
 
     def set_coins(user_id, amount):
-        cursor.execute("""
-            UPDATE users SET coins = %s WHERE user_id = %s
-        """, (amount, user_id))
-            
+        cursor.execute("UPDATE users SET coins = %s WHERE user_id = %s", (amount, user_id))
 
     def get_top_users(limit=10):
-        cursor.execute("""
-            SELECT user_id, coins FROM users ORDER BY coins DESC LIMIT %s
-        """, (limit,))
+        cursor.execute("SELECT user_id, coins FROM users ORDER BY coins DESC LIMIT %s", (limit,))
         return cursor.fetchall()
-            
 
     def find_user_id_by_username(username):
-        cursor.execute("""
-            SELECT user_id FROM users WHERE LOWER(username) = LOWER(%s)
-        """, (username,))
+        cursor.execute("SELECT user_id FROM users WHERE LOWER(username) = LOWER(%s)", (username,))
         result = cursor.fetchone()
         return result[0] if result else None
-    
+
     def add_pending_request(request_id: str, from_id: int, to_id: int, amount: int):
-        created_at = datetime.now(timezone.utc).isoformat()
-        cursor.execute(
-            "INSERT INTO pending_requests (request_id, from_id, to_id, amount, created_at) VALUES (?, ?, ?, ?, ?)",
-            (request_id, from_id, to_id, amount, created_at)
-        )
+        created_at = datetime.now(timezone.utc)
+        cursor.execute("""
+            INSERT INTO pending_requests (request_id, from_id, to_id, amount, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (request_id, from_id, to_id, amount, created_at))
 
     def get_pending_request(request_id: str):
-        cursor.execute("SELECT from_id, to_id, amount FROM pending_requests WHERE request_id = ?", (request_id,))
+        cursor.execute("SELECT from_id, to_id, amount FROM pending_requests WHERE request_id = %s", (request_id,))
         row = cursor.fetchone()
         return row if row else None
 
     def delete_pending_request(request_id: str):
-        cursor.execute("DELETE FROM pending_requests WHERE request_id = ?", (request_id,))
+        cursor.execute("DELETE FROM pending_requests WHERE request_id = %s", (request_id,))
 
     def cleanup_old_requests(days: int = 1):
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        cursor.execute("DELETE FROM pending_requests WHERE created_at < ?", (cutoff,))
-            
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cursor.execute("DELETE FROM pending_requests WHERE created_at < %s", (cutoff,))
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")
