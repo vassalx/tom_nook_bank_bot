@@ -34,7 +34,7 @@ WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 # This is the path Telegram will send updates to. Keep it secret!
 # Using BOT_TOKEN makes it unique, but a truly random string is more secure.
 # For this fix, we'll keep your original logic.
-WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_PATH = f"/webhook/{SECRET_TOKEN}"
 
 # Build the full webhook URL. RENDER_EXTERNAL_URL is provided by Render.
 WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL") + WEBHOOK_PATH
