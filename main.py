@@ -283,7 +283,7 @@ async def handle_messages(message: types.Message):
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        await bot.set_webhook(WEBHOOK_URL, secret_token=SECRET_TOKEN, request_timeout=30, allowed_updates=["messages", "callback_query"])
+        await bot.set_webhook(WEBHOOK_URL, secret_token=SECRET_TOKEN, request_timeout=30, allowed_updates=["message", "callback_query"])
         logger.info(f"Webhook set to: {WEBHOOK_URL}")
     except Exception as e:
         logger.error(f"Failed to set webhook: {e}")
@@ -329,3 +329,4 @@ if __name__ == "__main__":
             await asyncio.sleep(3600)
 
     asyncio.run(start())
+
