@@ -135,12 +135,12 @@ async def handle_request_response(callback: CallbackQuery):
     database.delete_pending_request(request_id)
     await callback.answer()
 
-@dp.message(Command("balance"), F.chat.id == GROUP_ID)
-async def balance(message: types.Message):
-    user_id = message.from_user.id
-    coins, _ = database.get_user(user_id)
-    logger.info(f"User {user_id} requested balance: {coins}") # Added log
-    await message.reply(f"💰 Your balance: {coins} coins")
+# @dp.message(Command("balance"), F.chat.id == GROUP_ID)
+# async def balance(message: types.Message):
+#     user_id = message.from_user.id
+#     coins, _ = database.get_user(user_id)
+#     logger.info(f"User {user_id} requested balance: {coins}") # Added log
+#     await message.reply(f"💰 Your balance: {coins} coins")
 
 @dp.message(Command("send"), F.chat.id == GROUP_ID)
 async def send_coins(message: types.Message):
