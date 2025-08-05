@@ -52,7 +52,7 @@ dp = Dispatcher()
 
 # --- Your Existing Bot Logic (Handlers) ---
 def get_daily_amount(coins):
-    return 10 + coins // 100
+    return 10 + (coins // 100) * 5
 
 @dp.message(Command("request"), F.chat.id == GROUP_ID)
 async def request_coins(message: types.Message):
