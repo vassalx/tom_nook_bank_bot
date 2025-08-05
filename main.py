@@ -1,7 +1,7 @@
 import os
-import json
 import logging # NEW: Import logging module
 import sys # NEW: Import sys for logging
+import random
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from aiogram.utils.markdown import hbold
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from roasts import ROASTS, BIG_SPENDER_ROASTS
 
 # NEW IMPORTS for webhook server
 from aiohttp import web
@@ -180,7 +181,14 @@ async def send_coins(message: types.Message):
     database.log_transaction(user_id, "send", -amount, target_user_id)
     database.log_transaction(target_user_id, "receive", amount, user_id)
     logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
-    await message.reply(f"✅ Sent {amount} coins to @{target_username}.")
+    coins, _ = database.get_user(user_id)
+    reply = f"✅ Sent {amount} coins to @{target_username}.\n\n"
+    if coins <= 0:
+        if amount >= 50:
+            reply += random.choice(BIG_SPENDER_ROASTS)
+        else:
+            reply += random.choice(ROASTS)
+    await message.reply(reply, parse_mode="MarkdownV2")
 
 # @dp.message(Command("sit"), F.chat.id == GROUP_ID)
 # async def sit_on_user(message: types.Message):
