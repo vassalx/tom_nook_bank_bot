@@ -48,19 +48,19 @@ ROASTS = [
 ]
 
 BIG_SPENDER_ROASTS = [
-    "Wow. Over <b>100 coins</b>... just to end up <b>broke and ignored</b>? Tragic.",
+    "Wow. Over <b>50 coins</b>... just to end up <b>broke and ignored</b>? Tragic.",
     "You emptied your entire bank account for <b>what</b>? <b>Attention?</b> <b>Affection?</b> Grow up.",
     "A bold move. Give everything to someone else and <b>forget to feed yourself</b>. <b>Classic simp behavior</b>.",
-    "You really dropped 100+ coins like it was <b>confetti</b>. Hope the <b>silence</b> was worth it.",
+    "You really dropped 50+ coins like it was <b>confetti</b>. Hope the <b>silence</b> was worth it.",
     "You’re not <b>generous</b> — you’re <b>desperate</b>. And now, also broke. Yes yes.",
     "Ah, the age-old tactic: throw <b>money at your problems</b> and hope they flirt back. <b>Didn’t work, did it?</b>",
     "The Bank of Nook would like to offer you a <b>shovel</b> — to keep digging that <b>financial grave</b>.",
     "You’re not <b>donating</b> — you’re <b>investing in delusion</b>.",
-    "You sent over 100 coins like a true <b>sugar raccoon</b>. Now you’re just... <b>sugarless</b>.",
+    "You sent over 50 coins like a true <b>sugar raccoon</b>. Now you’re just... <b>sugarless</b>.",
     "Congratulations. You’ve unlocked <b>Simp Level 99</b>. No coins, no dignity, no regrets? Actually... probably regrets.",
     "From <b>rich with purpose</b> to <b>broke and ghosted</b>. <b>Powerful arc</b>. Disney could never.",
     "At least now you can afford to focus on <b>self-respect</b>. Since you can’t afford anything else.",
-    "Giving 100+ coins in one go? That’s not <b>charity</b> — that’s a <b>cry for help</b> with sparkles on top.",
+    "Giving 50+ coins in one go? That’s not <b>charity</b> — that’s a <b>cry for help</b> with sparkles on top.",
     "You're the <b>financial version of a firework</b>. Big blast, then <b>total darkness</b>.",
     "Next time, try sending <b>a message</b> instead of your <b>entire net worth</b>. Yes yes.",
 ]
