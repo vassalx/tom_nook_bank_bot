@@ -165,9 +165,6 @@ async def send_coins(message: types.Message):
         return
 
     try:
-        # Note: get_chat_administrators only gets admins. 
-        # If the target user is not an admin, this will fail.
-        # Consider alternatives if you need to find non-admin users.
         target_user_id = database.find_user_id_by_username(target_username)
         if target_user_id is None:
             raise Exception("User not found or not an admin in the group.")
@@ -188,54 +185,7 @@ async def send_coins(message: types.Message):
             reply += random.choice(BIG_SPENDER_ROASTS)
         else:
             reply += random.choice(ROASTS)
-    await message.reply(reply, parse_mode="MarkdownV2")
-
-# @dp.message(Command("sit"), F.chat.id == GROUP_ID)
-# async def sit_on_user(message: types.Message):
-#     handle_messages(message)
-#     args = message.text.split()
-#     if len(args) != 2:
-#         await message.reply("Usage: /sit @username")
-#         return
-
-#     target_username = args[1].lstrip("@")
-#     user_id = message.from_user.id
-#     user_coins, _ = database.get_user(user_id)
-
-#     top_users = database.get_top_users()
-#     immune_ids = [u[0] for u in top_users]
-
-#     try:
-#         target_user_id = database.find_user_id_by_username(target_username)
-#         if target_user_id is None:
-#             raise Exception("User not found or not an admin in the group.")
-#     except Exception as e:
-#         logger.error(f"Error finding target user {target_username}: {e}") # Added log
-#         await message.reply(f"User not found in group or error: {e}")
-#         return
-
-#     if target_user_id in immune_ids:
-#         await message.reply("🚫 This user is in the top 10 users and is immune.")
-#         return
-
-#     target_coins, _ = database.get_user(target_user_id)
-
-#     if user_coins <= target_coins:
-#         await message.reply("You need to have more coins than the user to sit on them.")
-#         return
-
-#     try:
-#         await bot.restrict_chat_member(
-#             GROUP_ID,
-#             target_user_id,
-#             permissions=ChatPermissions(can_send_messages=False),
-#             until_date=datetime.now(timezone.utc) + timedelta(minutes=5)
-#         )
-#         logger.info(f"User {user_id} sat on {target_user_id}, muted for 5 mins.") # Added log
-#         await message.reply(f"🍑 You sat on @{target_username}! Muted for 5 minutes.")
-#     except Exception as e:
-#         logger.error(f"Failed to restrict user {target_user_id}: {e}") # Added log
-#         await message.reply(f"Failed to restrict user: {e}")
+    await message.reply(reply, parse_mode="HTML")
 
 @dp.message(Command("leaderboard"), F.chat.id == GROUP_ID)
 async def leaderboard(message: types.Message):
