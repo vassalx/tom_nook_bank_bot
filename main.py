@@ -11,6 +11,7 @@ from aiogram.utils.markdown import hbold
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from roasts import ROASTS, BIG_SPENDER_ROASTS
+from quests import MAIN_QUESTS
 
 # NEW IMPORTS for webhook server
 from aiohttp import web
@@ -287,4 +288,5 @@ if __name__ == "__main__":
             await asyncio.sleep(3600)
 
     asyncio.run(start())
+
 
