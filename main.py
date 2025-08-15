@@ -274,15 +274,15 @@ async def leaderboard(message: types.Message):
         return
 
     text = "🏆 " + hbold("Tom Nook's Leaderboard") + " 🏆\n\n"
-    for idx, (user_id, coins) in enumerate(top_users, 1):
+    for idx, user in enumerate(top_users, 1):
         try:
-            member = await bot.get_chat_member(GROUP_ID, user_id)
+            member = await bot.get_chat_member(GROUP_ID, user["user_id"])
             name = member.user.first_name
             if member.user.username:
                 name = f"{member.user.username}"
         except Exception:
-            name = f"[unknown user {user_id}]"
-        text += f"{idx}. {name} — {coins} coins\n"
+            name = f"[unknown user {user["user_id"]}]"
+        text += f"{idx}. {name} — {user["coins"]} coins\n"
     logger.info("Leaderboard requested and sent.") # Added log
     await message.reply(text, parse_mode="HTML")
 
