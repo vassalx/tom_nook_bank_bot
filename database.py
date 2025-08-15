@@ -2,6 +2,7 @@ import psycopg2
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone, timedelta
+import psycopg2.extras
 
 # Load environment variables from .env
 load_dotenv()
@@ -25,7 +26,7 @@ try:
     connection.autocommit = True
     print("✅ PostgreSQL connection successful!")
 
-    cursor = connection.cursor()
+    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # Users table
     cursor.execute("""
@@ -33,7 +34,9 @@ try:
         user_id BIGINT PRIMARY KEY,
         username TEXT,
         coins INTEGER DEFAULT 0,
-        last_claim TIMESTAMP WITH TIME ZONE DEFAULT NULL
+        last_claim TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        last_quest TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        is_muted_until TIMESTAMP WITH TIME ZONE DEFAULT NULL
     )
     """)
 
@@ -87,7 +90,7 @@ try:
             """, (user_id,))
 
     def get_user(user_id):
-        cursor.execute("SELECT coins, last_claim FROM users WHERE user_id = %s", (user_id,))
+        cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
         row = cursor.fetchone()
         return row if row else (0, None)
 
@@ -107,7 +110,7 @@ try:
     def find_user_id_by_username(username):
         cursor.execute("SELECT user_id FROM users WHERE LOWER(username) = LOWER(%s)", (username,))
         result = cursor.fetchone()
-        return result[0] if result else None
+        return result["user_id"] if result else None
 
     def add_pending_request(request_id: str, from_id: int, to_id: int, from_username: str, to_username: str, amount: int):
         created_at = datetime.now(timezone.utc)
@@ -127,6 +130,34 @@ try:
     def cleanup_old_requests(days: int = 1):
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         cursor.execute("DELETE FROM pending_requests WHERE created_at < %s", (cutoff,))
+
+    def mute_user(user_id: int, hours: int = 4):
+        until = datetime.now(timezone.utc) + timedelta(hours=hours)
+        cursor.execute("UPDATE users SET is_muted_until = %s WHERE user_id = %s", (until, user_id))
+
+    def is_user_muted(user_id):
+        cursor.execute("""
+            SELECT muted_until FROM users WHERE user_id = %s
+        """, (user_id,))
+        row = cursor.fetchone()
+        if row and row["muted_until"]:
+            return row["muted_until"] > datetime.now(timezone.utc).timestamp()
+        return False
+
+    def has_used_quest_today(user_id: int) -> bool:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cursor.execute("SELECT last_quest FROM users WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        return row and row["last_quest"] == today_str
+
+    def is_user_bankrupt(user_id: int) -> bool:
+        cursor.execute("SELECT coins FROM users WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        return row and row["coins"] <= 0
+    
+    def update_user_quest_time(user_id: int):
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cursor.execute("UPDATE users SET last_quest = %s WHERE user_id = %s", (today_str, user_id))
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")

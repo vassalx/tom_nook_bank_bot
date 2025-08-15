@@ -56,6 +56,73 @@ dp = Dispatcher()
 def get_daily_amount(coins):
     return 10 + (coins // 100) * 5
 
+@dp.message(Command("quest"), F.chat.id == GROUP_ID)
+async def handle_quest_command(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    # Only bankrupt users can go on quests
+    user = database.get_user(user_id)
+    if user["coins"] > 0:
+        await message.reply("You're not broke enough to beg Tom Nook for a quest. Go spend more.")
+        return
+
+    # Can only go on a quest once per day
+    if database.has_used_quest_today(user_id):
+        await message.reply("You’ve already embarrassed yourself enough today. Come back tomorrow.")
+        return
+
+    # Pick a quest
+    quest = random.choice(MAIN_QUESTS)
+    database.update_user_quest_time(user_id)
+
+    # Build inline keyboard
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=quest["options"][0]["text"], callback_data=f"quest_choice:{quest['id']}:0:{user_id}")],
+        [InlineKeyboardButton(text=quest["options"][1]["text"], callback_data=f"quest_choice:{quest['id']}:1:{user_id}")],
+        [InlineKeyboardButton(text=quest["options"][2]["text"], callback_data=f"quest_choice:{quest['id']}:2:{user_id}")]
+    ])
+
+    text = f"🎲 <b>Quest Started</b>\n\n{quest['description']}"
+    await message.reply(text, reply_markup=keyboard, parse_mode="HTML")
+
+@dp.callback_query(F.data.startswith("quest_choice"))
+async def handle_quest_choice(callback: types.CallbackQuery):
+    try:
+        _, quest_id, option_index, original_user_id = callback.data.split(":")
+        quest_id = int(quest_id)
+        option_index = int(option_index)
+        original_user_id = int(original_user_id)
+    except ValueError:
+        await callback.answer("Something went wrong.")
+        return
+
+    if callback.from_user.id != original_user_id:
+        await callback.answer("This isn’t your adventure.")
+        return
+
+    # Get quest and outcome
+    quest = next((q for q in MAIN_QUESTS if q["id"] == quest_id), None)
+    if not quest:
+        await callback.answer("Quest not found.")
+        return
+
+    selected = quest["options"][option_index]
+    outcome_text = selected["outcome"]
+    reward_type = selected["reward"]
+
+    # Remove buttons
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    # Send outcome
+    await callback.message.reply(outcome_text, parse_mode="HTML")
+
+    # Apply reward
+    if reward_type == "coins":
+        database.update_coins(original_user_id, 50)
+    elif reward_type == "mute":
+        database.mute_user(original_user_id, 4)
+
 @dp.message(Command("request"), F.chat.id == GROUP_ID)
 async def request_coins(message: types.Message):
     args = message.text.split()
@@ -120,8 +187,8 @@ async def handle_request_response(callback: CallbackQuery):
         database.add_user(from_id)
         database.add_user(to_id)
 
-        to_balance, _ = database.get_user(to_id)
-        if to_balance < amount:
+        user = database.get_user(to_id)
+        if user["to_balance"] < amount:
             await callback.message.edit_text("❌ Not enough coins to fulfill the request.")
         else:
             database.update_coins(to_id, -amount)
@@ -140,9 +207,9 @@ async def handle_request_response(callback: CallbackQuery):
 @dp.message(Command("balance"), F.chat.id == GROUP_ID)
 async def balance(message: types.Message):
     user_id = message.from_user.id
-    coins, _ = database.get_user(user_id)
-    logger.info(f"User {user_id} requested balance: {coins}") # Added log
-    await message.reply(f"💰 Your balance: {coins} coins")
+    user = database.get_user(user_id)
+    logger.info(f"User {user_id} requested balance: {user["coins"]}") # Added log
+    await message.reply(f"💰 Your balance: {user["coins"]} coins")
 
 @dp.message(Command("send"), F.chat.id == GROUP_ID)
 async def send_coins(message: types.Message):
@@ -159,9 +226,9 @@ async def send_coins(message: types.Message):
         return
 
     user_id = message.from_user.id
-    coins, _ = database.get_user(user_id)
+    user = database.get_user(user_id)
 
-    if amount <= 0 or coins < amount:
+    if amount <= 0 or user["coins"] < amount:
         await message.reply("Not enough coins.")
         return
 
@@ -179,9 +246,9 @@ async def send_coins(message: types.Message):
     database.log_transaction(user_id, "send", -amount, target_user_id)
     database.log_transaction(target_user_id, "receive", amount, user_id)
     logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
-    coins, _ = database.get_user(user_id)
+    user = database.get_user(user_id)
     reply = f"✅ Sent {amount} coins to @{target_username}.\n\n"
-    if coins <= 0:
+    if user["coins"] <= 0:
         if amount >= 50:
             reply += random.choice(BIG_SPENDER_ROASTS)
         else:
@@ -211,32 +278,53 @@ async def leaderboard(message: types.Message):
 @dp.message(F.chat.id == GROUP_ID)
 async def handle_messages(message: types.Message):
     user_id = message.from_user.id
-    database.add_user(user_id, username=message.from_user.username)
-    coins, last_claim = database.get_user(user_id)
+    username = message.from_user.username
+    database.add_user(user_id, username=username)
 
+    # 💬 If user is muted, delete message
+    if database.is_user_muted(user_id):
+        await message.delete()
+        logger.info(f"Deleted message from muted user {user_id}.")
+        return
+
+    user = database.get_user(user_id)
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if last_claim != today_str:
-        daily_amount = get_daily_amount(coins)
+
+    # 🎁 Daily claim
+    if user["last_claim"] != today_str:
+        daily_amount = get_daily_amount(user["coins"])
         database.update_coins(user_id, daily_amount)
         database.set_last_claim(user_id, today_str)
         database.log_transaction(user_id, "daily_claim", daily_amount)
-        logger.info(f"User {user_id} claimed daily coins: +{daily_amount}") # Added log
-        # await message.reply(f"✅ Daily claim: +{daily_amount} coins! Your balance: {coins + daily_amount}")
+        logger.info(f"User {user_id} claimed daily coins: +{daily_amount}")
 
-    if coins == 0 and message.content_type in [ContentType.STICKER, ContentType.PHOTO, ContentType.VIDEO, ContentType.ANIMATION]:
+        # Send a temporary reply
+        claim_msg = await message.reply(
+            f"✅ Daily claim: +{daily_amount} coins! Your balance: {user['coins'] + daily_amount}"
+        )
+        await asyncio.sleep(60)  # wait 1 minute
+        try:
+            await claim_msg.delete()
+        except Exception as e:
+            logger.warning(f"Could not delete daily claim message: {e}")
+
+    # 🚫 Block media if coins <= 0
+    if user["coins"] <= 0 and message.content_type in [
+        ContentType.STICKER, ContentType.PHOTO, ContentType.VIDEO, ContentType.ANIMATION
+    ]:
         await message.delete()
-        logger.info(f"Deleted content from user {user_id} due to 0 coins.") # Added log
+        logger.info(f"Deleted content from user {user_id} due to 0 coins.")
+        return
 
+    # 🐱 Sticker penalty
     if message.content_type == ContentType.STICKER:
-        if coins > 0:
+        if user["coins"] > 0:
             database.update_coins(user_id, -1)
             database.log_transaction(user_id, "sticker_penalty", -1)
-            coins -= 1
-            logger.info(f"User {user_id} sent sticker, -1 coin. Balance: {coins}") # Added log
-            # await message.reply(f"😼 Sent a sticker, -1 coin! Your balance: {coins}")
+            logger.info(f"User {user_id} sent sticker, -1 coin. Balance: {user['coins'] - 1}")
         else:
             await message.delete()
-            logger.info(f"Deleted sticker from user {user_id} due to 0 coins.") # Added log
+            logger.info(f"Deleted sticker from user {user_id} due to 0 coins.")
 
 # --- NEW: Webhook Setup for Render ---
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
