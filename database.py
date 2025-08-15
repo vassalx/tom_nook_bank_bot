@@ -137,11 +137,11 @@ try:
 
     def is_user_muted(user_id):
         cursor.execute("""
-            SELECT muted_until FROM users WHERE user_id = %s
+            SELECT is_muted_until FROM users WHERE user_id = %s
         """, (user_id,))
         row = cursor.fetchone()
-        if row and row["muted_until"]:
-            return row["muted_until"] > datetime.now(timezone.utc).timestamp()
+        if row and row["is_muted_until"]:
+            return row["is_muted_until"] > datetime.now(timezone.utc).timestamp()
         return False
 
     def has_used_quest_today(user_id: int) -> bool:
