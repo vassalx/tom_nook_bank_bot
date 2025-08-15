@@ -110,12 +110,23 @@ async def handle_quest_choice(callback: types.CallbackQuery):
     selected = quest["options"][option_index]
     outcome_text = selected["outcome"]
     reward_type = selected["reward"]
+    selected_option = selected["text"]
+    
+    def getTextReward():
+        if reward_type == "coins":
+            return "50 coins!"
+        elif reward_type == "mute":
+            return "You got muted for 4 hours!"
+        else:
+            return "Nothing..."
+    
+    text_reward = getTextReward()
 
     # Remove buttons
     await callback.message.edit_reply_markup(reply_markup=None)
 
     # Send outcome
-    await callback.message.reply(outcome_text, parse_mode="HTML")
+    await callback.message.reply(f"Selected option:\n\n<b>{selected_option}</b>\n\n{outcome_text}\n\nReward: <b>{text_reward}</b>", parse_mode="HTML")
 
     # Apply reward
     if reward_type == "coins":
