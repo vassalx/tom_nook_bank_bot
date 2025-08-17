@@ -77,4 +77,17 @@ MAIN_QUESTS = [
                 "outcome": "You run and trip on your own tail. The dragon snorts.", "reward": "none"}
         ]
     },
+    {
+        "id": 7,
+        "title": "Mercs Hideout — Durability Trial",
+        "description": "You enter a sharks camp, looking for work. She eyes you before standing tall, towering over you at a solid 12ft, a bulge showing beneath her latex suit. `The hell kinda use is a twink like you?`",
+        "options": [
+            {"text": "🧎‍♂️ stammer and panic, unable to get a word out",
+             "outcome": "She shakes her head and pins you, taking you as her own stress reliever", "reward": "mute"},
+            {"text": "🫡 do your best to be confident. ",
+             "outcome": "she rolls her eyes, slapping a collar on you and dragging you with her on missions", "reward": "coins"},
+            {"text": "🍆 offer your mouth to her bulge",
+             "outcome": "You fucking perv! - She yells before kicking you out of her camp. Filing a restraining order as well. ", "reward": "none"}
+        ]
+    }
 ]
