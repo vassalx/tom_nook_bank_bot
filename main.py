@@ -114,7 +114,7 @@ async def handle_quest_choice(callback: types.CallbackQuery):
     
     def getTextReward():
         if reward_type == "coins":
-            return "50 coins!"
+            return "10 coins!"
         elif reward_type == "mute":
             return "You got muted for 4 hours!"
         else:
@@ -130,7 +130,7 @@ async def handle_quest_choice(callback: types.CallbackQuery):
 
     # Apply reward
     if reward_type == "coins":
-        database.update_coins(original_user_id, 50)
+        database.update_coins(original_user_id, 10)
     elif reward_type == "mute":
         database.mute_user(original_user_id, 4)
 

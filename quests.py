@@ -89,5 +89,5 @@ MAIN_QUESTS = [
             {"text": "🍆 offer your mouth to her bulge",
              "outcome": "You fucking perv! - She yells before kicking you out of her camp. Filing a restraining order as well. ", "reward": "none"}
         ]
-    }
+    },
 ]
