@@ -141,7 +141,7 @@ try:
         """, (user_id,))
         row = cursor.fetchone()
         if row and row["is_muted_until"]:
-            return float(row["is_muted_until"]) > datetime.now(timezone.utc).timestamp()
+            return row["is_muted_until"] > datetime.now(timezone.utc)
         return False
 
     def has_used_quest_today(user_id: int) -> bool:
@@ -161,4 +161,5 @@ try:
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")
+
 
