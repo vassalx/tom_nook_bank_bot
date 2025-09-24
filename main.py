@@ -266,6 +266,96 @@ async def send_coins(message: types.Message):
             reply += random.choice(ROASTS)
     await message.reply(reply, parse_mode="HTML")
 
+# Temporary storage
+user_bets = {}
+
+@dp.message(Command("gamble"))
+async def gamble_command(message: types.Message):
+    gamble_bank = database.get_gamble_bank()
+
+    user_id = message.from_user.id
+    user = database.get_user(user_id)
+
+    # Check if user has gambled today
+    if database.has_used_gamble_today(user_id):
+        await message.reply("❌ You have already gambled today. Try again tomorrow!")
+        return
+
+    args = message.text.split()
+    if len(args) != 2 or not args[1].isdigit():
+        await message.reply("🎲 Usage: /gamble <bet_amount>")
+        return
+
+    bet = int(args[1])
+
+    if not user or user["coins"] < bet:
+        await message.reply("❌ Not enough coins to gamble.")
+        return
+
+    # Save bet
+    user_bets[user_id] = bet
+
+    # Create number choice keyboard
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=str(i), callback_data=f"gamble:{i}")
+                for i in range(1, 7)
+            ]
+        ]
+    )
+
+    await message.reply(
+        f"🎲 You are betting {bet} coins!\n"
+        f"💰 Current Bank: {gamble_bank} coins\n"
+        "Choose a number from 1 to 6:",
+        reply_markup=keyboard,
+    )
+
+
+@dp.callback_query(F.data.startswith("gamble:"))
+async def handle_gamble_choice(callback: types.CallbackQuery):
+    gamble_bank = database.get_gamble_bank()
+    user_id = callback.from_user.id
+
+    if user_id not in user_bets:
+        await callback.answer("❌ You don’t have an active gamble.", show_alert=True)
+        return
+
+    bet = user_bets[user_id]
+    choice = int(callback.data.split(":")[1])
+
+    # Roll dice
+    dice_message = await callback.message.answer("🎲 Rolling the dice...")
+    dice = await callback.message.answer_dice(emoji="🎲")
+    result = dice.dice.value  # 1–6
+
+    if result == choice:
+        winnings = bet + gamble_bank
+        database.update_coins(user_id, winnings)
+        database.log_transaction(user_id, "gamble_win", winnings)
+        await dice_message.edit_text(
+            f"✅ Dice rolled {result} — You guessed right!\n"
+            f"🏆 Jackpot won: {gamble_bank} coins!\n"
+            f"💰 You gain {winnings} coins"
+        )
+        database.reset_gamble_bank()
+    else:
+        database.update_coins(user_id, -bet)
+        database.log_transaction(user_id, "gamble_loss", -bet)
+        database.add_to_gamble_bank(bet)
+        await dice_message.edit_text(
+            f"❌ Dice rolled {result} — You lost your bet!\n"
+            f"-{bet} coins 🪙\n"
+            f"💰 Bank is now {gamble_bank + bet} coins"
+        )
+
+    # Mark user as having gambled today
+    database.update_user_gamble_time(user_id)
+
+    del user_bets[user_id]
+    await callback.answer()
+
 @dp.message(Command("leaderboard"), F.chat.id == GROUP_ID)
 async def leaderboard(message: types.Message):
     top_users = database.get_top_users(limit=10)

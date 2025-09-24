@@ -36,6 +36,7 @@ try:
         coins INTEGER DEFAULT 0,
         last_claim TIMESTAMP WITH TIME ZONE DEFAULT NULL,
         last_quest TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        last_gamble TIMESTAMP WITH TIME ZONE DEFAULT NULL,
         is_muted_until TIMESTAMP WITH TIME ZONE DEFAULT NULL
     )
     """)
@@ -65,6 +66,26 @@ try:
         created_at TIMESTAMP WITH TIME ZONE NOT NULL
     )
     """)
+    
+    # Pending Gambles table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pending_gambles (
+        id TEXT PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        bet INTEGER NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL
+    )
+    """)
+    
+    # Gamble Bank
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gamble_bank (
+        id BOOLEAN PRIMARY KEY DEFAULT TRUE,
+        bank INTEGER DEFAULT 0
+    )
+    """)
+    # Ensure at least one row exists
+    cursor.execute("INSERT INTO gamble_bank (id, bank) VALUES (TRUE, 0) ON CONFLICT (id) DO NOTHING")
 
     # === FUNCTIONS ===
 
@@ -149,6 +170,12 @@ try:
         cursor.execute("SELECT last_quest FROM users WHERE user_id = %s", (user_id,))
         row = cursor.fetchone()
         return row and row["last_quest"] == today_str
+    
+    def has_used_gamble_today(user_id: int) -> bool:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cursor.execute("SELECT last_gamble FROM users WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        return row and row["last_gamble"] == today_str
 
     def is_user_bankrupt(user_id: int) -> bool:
         cursor.execute("SELECT coins FROM users WHERE user_id = %s", (user_id,))
@@ -158,6 +185,23 @@ try:
     def update_user_quest_time(user_id: int):
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         cursor.execute("UPDATE users SET last_quest = %s WHERE user_id = %s", (today_str, user_id))
+        
+    def update_user_gamble_time(user_id: int):
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cursor.execute("UPDATE users SET last_gamble = %s WHERE user_id = %s", (today_str, user_id))
+        
+    # === GAMBLE BANK ===
+
+    def get_gamble_bank():
+        cursor.execute("SELECT bank FROM gamble_bank WHERE id = TRUE")
+        row = cursor.fetchone()
+        return row["bank"] if row else 0
+
+    def add_to_gamble_bank(amount: int):
+        cursor.execute("UPDATE gamble_bank SET bank = bank + %s WHERE id = TRUE", (amount,))
+
+    def reset_gamble_bank():
+        cursor.execute("UPDATE gamble_bank SET bank = 0 WHERE id = TRUE")
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")
