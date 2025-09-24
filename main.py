@@ -336,6 +336,7 @@ async def handle_gamble_choice(callback: types.CallbackQuery):
         database.log_transaction(user_id, "gamble_win", winnings)
         await dice_message.edit_text(
             f"✅ Dice rolled {result} — You guessed right!\n"
+            f"🎯 Your choice: {choice}\n"
             f"🏆 Jackpot won: {gamble_bank} coins!\n"
             f"💰 You gain {winnings} coins"
         )
@@ -346,6 +347,7 @@ async def handle_gamble_choice(callback: types.CallbackQuery):
         database.add_to_gamble_bank(bet)
         await dice_message.edit_text(
             f"❌ Dice rolled {result} — You lost your bet!\n"
+            f"🎯 Your choice: {choice}\n"
             f"-{bet} coins 🪙\n"
             f"💰 Bank is now {gamble_bank + bet} coins"
         )
