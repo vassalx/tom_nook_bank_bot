@@ -224,47 +224,60 @@ async def balance(message: types.Message):
 
 @dp.message(Command("send"), F.chat.id == GROUP_ID)
 async def send_coins(message: types.Message):
+    from_user_id = message.from_user.id
+    from_username = message.from_user.username or "Unknown"
+    
     args = message.text.split()
-    if len(args) != 3:
-        await message.reply("Usage: /send @username amount")
+    if len(args) < 3:
+        await message.reply("Usage: /send <username> <amount>")
         return
-
-    target_username = args[1].lstrip("@")
+    
+    to_username = args[1].lstrip("@")
     try:
         amount = int(args[2])
     except ValueError:
-        await message.reply("Amount must be a number.")
+        await message.reply("Invalid amount.")
         return
-
-    user_id = message.from_user.id
-    user = database.get_user(user_id)
-
-    if amount <= 0 or user["coins"] < amount:
-        await message.reply("Not enough coins.")
+    
+    if amount <= 0:
+        await message.reply("Amount must be positive.")
         return
-
-    try:
-        target_user_id = database.find_user_id_by_username(target_username)
-        if target_user_id is None:
-            raise Exception("User not found or not an admin in the group.")
-    except Exception as e:
-        logger.error(f"Error finding target user {target_username}: {e}") # Added log
-        await message.reply(f"User not found in group or error: {e}")
+    
+    to_user_id = database.find_user_id_by_username(to_username)
+    if not to_user_id:
+        await message.reply(f"User @{to_username} not found.")
         return
-
-    database.update_coins(user_id, -amount)
-    database.update_coins(target_user_id, amount)
-    database.log_transaction(user_id, "send", -amount, target_user_id)
-    database.log_transaction(target_user_id, "receive", amount, user_id)
-    logger.info(f"User {user_id} sent {amount} coins to {target_user_id}") # Added log
-    user = database.get_user(user_id)
-    reply = f"✅ Sent {amount} coins to @{target_username}.\n\n"
-    if user["coins"] <= 0:
-        if amount >= 50:
-            reply += random.choice(BIG_SPENDER_ROASTS)
-        else:
-            reply += random.choice(ROASTS)
-    await message.reply(reply, parse_mode="HTML")
+    
+    from_user = database.get_user(from_user_id)
+    if not from_user or from_user["coins"] < amount:
+        await message.reply("❌ Not enough coins.")
+        return
+    
+    # Get streak bonus
+    streak = database.get_send_streak(from_user_id, to_user_id)
+    streak_bonus = streak  # Bonus equals the current streak
+    total_sent = amount + streak_bonus
+    
+    # Update coins
+    database.update_coins(from_user_id, -amount)
+    database.update_coins(to_user_id, total_sent)
+    
+    # Log transaction
+    database.log_transaction(from_user_id, "send", -amount, to_user_id)
+    database.log_transaction(to_user_id, "receive", total_sent, from_user_id)
+    
+    # Update streak
+    database.update_send_streak(from_user_id, to_user_id)
+    
+    # Build response message
+    streak_text = f"\n🔥 <b>Streak Bonus:</b> +{streak_bonus} coins (Day {streak + 1})" if streak_bonus > 0 else ""
+    
+    await message.reply(
+        f"✅ <b>{from_username}</b> sent {amount} coins to <b>{to_username}</b>"
+        f"{streak_text}\n"
+        f"💰 {to_username} received: {total_sent} coins",
+        parse_mode="HTML"
+    )
 
 # Temporary storage
 user_bets = {}

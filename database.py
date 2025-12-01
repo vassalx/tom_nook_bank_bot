@@ -87,6 +87,17 @@ try:
     # Ensure at least one row exists
     cursor.execute("INSERT INTO gamble_bank (id, bank) VALUES (TRUE, 0) ON CONFLICT (id) DO NOTHING")
 
+    # Send Streaks table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS send_streaks (
+        from_user_id BIGINT NOT NULL,
+        to_user_id BIGINT NOT NULL,
+        streak_count INTEGER DEFAULT 1,
+        last_send_date DATE NOT NULL,
+        PRIMARY KEY (from_user_id, to_user_id)
+    )
+    """)
+
     # === FUNCTIONS ===
 
     def log_transaction(user_id: int, tx_type: str, amount: int, target_user_id: int = None):
@@ -202,6 +213,54 @@ try:
 
     def reset_gamble_bank():
         cursor.execute("UPDATE gamble_bank SET bank = 0 WHERE id = TRUE")
+
+    def get_send_streak(from_user_id: int, to_user_id: int) -> int:
+        cursor.execute("""
+            SELECT streak_count FROM send_streaks 
+            WHERE from_user_id = %s AND to_user_id = %s
+        """, (from_user_id, to_user_id))
+        result = cursor.fetchone()
+        return result["streak_count"] if result else 0
+
+    def update_send_streak(from_user_id: int, to_user_id: int):
+        today = datetime.now(timezone.utc).date()
+        cursor.execute("""
+            SELECT last_send_date FROM send_streaks 
+            WHERE from_user_id = %s AND to_user_id = %s
+        """, (from_user_id, to_user_id))
+        result = cursor.fetchone()
+        
+        if result:
+            last_send = result["last_send_date"]
+            yesterday = today - timedelta(days=1)
+            
+            # If last send was today, don't increase streak
+            if last_send == today:
+                return
+            # If last send was yesterday, increment streak
+            elif last_send == yesterday:
+                cursor.execute("""
+                    UPDATE send_streaks SET streak_count = streak_count + 1, last_send_date = %s
+                    WHERE from_user_id = %s AND to_user_id = %s
+                """, (today, from_user_id, to_user_id))
+            # Otherwise, reset streak to 1
+            else:
+                cursor.execute("""
+                    UPDATE send_streaks SET streak_count = 1, last_send_date = %s
+                    WHERE from_user_id = %s AND to_user_id = %s
+                """, (today, from_user_id, to_user_id))
+        else:
+            # First time sending to this user
+            cursor.execute("""
+                INSERT INTO send_streaks (from_user_id, to_user_id, streak_count, last_send_date)
+                VALUES (%s, %s, 1, %s)
+            """, (from_user_id, to_user_id, today))
+
+    def reset_send_streak(from_user_id: int, to_user_id: int):
+        cursor.execute("""
+            DELETE FROM send_streaks 
+            WHERE from_user_id = %s AND to_user_id = %s
+        """, (from_user_id, to_user_id))
 
 except Exception as e:
     print(f"❌ Failed to connect to PostgreSQL: {e}")
